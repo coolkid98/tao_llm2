@@ -6,15 +6,50 @@ import os
 from langchain_core.output_parsers import StrOutputParser
 from langchain.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
-
+from langchain_community.llms import SparkLLM
 from langchain.vectorstores.chroma import Chroma
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 
 # openai_api_key = os.environ['OPENAI_API_KEY']
-openai_api_key = st.secrets["OPENAI_API_KEY"]
-def generate_response(input_text, openai_api_key):
-    llm = ChatOpenAI(temperature=0.7, openai_api_key=openai_api_key)
+IFLYTEK_SPARK_APP_ID = "9de859a9"
+IFLYTEK_SPARK_API_KEY = "056448f180808a60fd9034e9e2c76c59"
+IFLYTEK_SPARK_API_SECRET = "OTZmNDFmMDZmMWJiNTQ1Y2E4NTBhMWRj"
+def gen_spark_params(model):
+    '''
+    构造星火模型请求参数
+    '''
+
+    spark_url_tpl = "wss://spark-api.xf-yun.com/{}/chat"
+    model_params_dict = {
+        # v1.5 版本
+        "v1.5": {
+            "domain": "general", # 用于配置大模型版本
+            "spark_url": spark_url_tpl.format("v1.1") # 云端环境的服务地址
+        },
+        # v2.0 版本
+        "v2.0": {
+            "domain": "generalv2", # 用于配置大模型版本
+            "spark_url": spark_url_tpl.format("v2.1") # 云端环境的服务地址
+        },
+        # v3.0 版本
+        "v3.0": {
+            "domain": "generalv3", # 用于配置大模型版本
+            "spark_url": spark_url_tpl.format("v3.1") # 云端环境的服务地址
+        },
+        # v3.5 版本
+        "v3.5": {
+            "domain": "generalv3.5", # 用于配置大模型版本
+            "spark_url": spark_url_tpl.format("v3.5") # 云端环境的服务地址
+        }
+    }
+    return model_params_dict[model]
+
+# openai_api_key = st.secrets["OPENAI_API_KEY"]
+def generate_response(input_text):
+    spark_api_url = gen_spark_params(model="v3.5")["spark_url"]
+    llm = SparkLLM(spark_api_url=spark_api_url)  # 指定 v3.5版本
+    # llm = ChatOpenAI(temperature=0.7, openai_api_key=openai_api_key)
     output = llm.invoke(input_text)
     output_parser = StrOutputParser()
     output = output_parser.invoke(output)
@@ -36,7 +71,9 @@ def get_vectordb():
 #带有历史记录的问答链
 def get_chat_qa_chain(question:str):
     vectordb = get_vectordb()
-    llm = ChatOpenAI(model_name = "gpt-3.5-turbo", temperature = 0,openai_api_key = openai_api_key)
+    # llm = ChatOpenAI(model_name = "gpt-3.5-turbo", temperature = 0,openai_api_key = openai_api_key)
+    spark_api_url = gen_spark_params(model="v3.5")["spark_url"]
+    llm = SparkLLM(spark_api_url=spark_api_url)  # 指定 v3.5版本
     memory = ConversationBufferMemory(
         memory_key="chat_history",  # 与 prompt 的输入变量保持一致。
         return_messages=True  # 将以消息列表的形式返回聊天记录，而不是单个字符串
@@ -53,7 +90,9 @@ def get_chat_qa_chain(question:str):
 #不带历史记录的问答链
 def get_qa_chain(question:str):
     vectordb = get_vectordb()
-    llm = ChatOpenAI(model_name = "gpt-3.5-turbo", temperature = 0,openai_api_key = openai_api_key)
+    # llm = ChatOpenAI(model_name = "gpt-3.5-turbo", temperature = 0,openai_api_key = openai_api_key)
+    spark_api_url = gen_spark_params(model="v3.5")["spark_url"]
+    llm = SparkLLM(spark_api_url=spark_api_url)  # 指定 v3.5版本
     template = """使用以下上下文来回答最后的问题。如果你不知道答案，就说你不知道，不要试图编造答
         案。最多使用三句话。尽量使答案简明扼要。总是在回答的最后说“谢谢你的提问！”。
         {context}
